@@ -1,5 +1,5 @@
---- /usr/share/perl5/PVE/LXC.pm.bak	2025-01-19 21:58:23.311960597 +0800
-+++ /usr/share/perl5/PVE/LXC.pm	2025-01-19 21:58:23.315960735 +0800
+--- /usr/share/perl5/PVE/LXC.pm.bak
++++ /usr/share/perl5/PVE/LXC.pm
 @@ -1097,10 +1097,22 @@
      my $res;
      for my $interface ($config->@*) {

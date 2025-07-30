@@ -98,7 +98,7 @@ Apparmor profile, lxc.init.cmd and lxc.mount.auto added for OCI type containers 
 
 Thanks to Gabriel Goller (from pve-devel) for the reference.
 
-Supports PVE 8.1 ~ 8.4
+Supports PVE 8.1 ~ 9.0 beta 1
 
 Usage:
 

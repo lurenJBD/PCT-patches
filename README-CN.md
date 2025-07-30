@@ -98,7 +98,7 @@ bash Patch-for-PCT-to-support-oci.sh -c -R
 
 感谢 Gabriel Goller(来自pve-devel) 提供的参考
 
-支持 PVE 8.1 ~ 8.4
+支持 PVE 8.1 ~ 9.0 beta 1
 
 使用方法
 

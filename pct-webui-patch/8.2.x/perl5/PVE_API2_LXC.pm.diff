@@ -1,5 +1,5 @@
---- /usr/share/perl5/PVE/API2/LXC.pm.bak	2025-01-19 21:56:20.519729445 +0800
-+++ /usr/share/perl5/PVE/API2/LXC.pm	2025-01-19 21:56:20.519729445 +0800
+--- /usr/share/perl5/PVE/API2/LXC.pm.bak
++++ /usr/share/perl5/PVE/API2/LXC.pm
 @@ -2548,6 +2548,11 @@
  		    description => 'The MAC address of the interface',
  		    optional => 0,
