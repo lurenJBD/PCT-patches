@@ -6,7 +6,7 @@
 
 [中文](https://github.com/lurenJBD/PCT-pacthes/blob/main/README-CN.md) | [English](https://github.com/lurenJBD/PCT-pacthes/blob/main/README.md)
 
-## 安装须知
+## 警告
 
 > [!CAUTION]
 > 如果曾使用过与 LXC/PCT 相关的其他脚本，运行该脚本可能会导致不可预估的问题。  
@@ -67,7 +67,7 @@ bash Patch-for-PCT-to-support-oci.sh -c -R
 
 ## 2. 创建 Redroid LXC 容器
 
-从 `[Release](https://github.com/lurenJBD/PCT-patches/releases)` 中选择一个模板下载，推荐使用 `[lineage19.1-x86_64-houdini-magisk-gapps.tar.gz](https://github.com/lurenJBD/PCT-patches/releases/download/lineage/lineage19.1-x86_64-houdini-magisk-gapps.tar.gz)`
+从 [`Release`](https://github.com/lurenJBD/PCT-patches/releases) 中选择一个模板下载，推荐使用 [`lineage19.1-x86_64-houdini-magisk-gapps.tar.gz`](https://github.com/lurenJBD/PCT-patches/releases/download/lineage/lineage19.1-x86_64-houdini-magisk-gapps.tar.gz)
 
 创建容器时 **不要勾选(Don't)** 非特权容器(Unprivileged container)，会导致密码无法生效
 
