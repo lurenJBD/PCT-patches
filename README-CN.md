@@ -134,10 +134,10 @@ bash Patch-for-PCT-to-support-oci.sh -c -R
 #### 2.5 效果截图
 
 为 OCI 类型容器添加的 `Mount Entry` 功能（仅限 OCI 容器使用）
-![Image](https://github.com/user-attachments/assets/660b1df1-4ad6-49bc-8982-617b115af164)
+![Image](./image/OCI-MountEntry.jpg)
 
 为 OCI 类型容器添加的 `Apparmor profile` ，`lxc.init.cmd` 和 `Ixc.mount.auto` 参数（后两者仅限 OCI 容器使用）
-![Image](https://github.com/user-attachments/assets/0b0dfee6-564a-4363-ad3b-a68e1b5ceaf4)
+![Image](./image/OCI-ApparmorProfile-lxc.jpg)
 
 ---
 
@@ -165,7 +165,7 @@ bash Patch-for-PVE-WebUI-Display-IPinfo-beta.sh -R
 #### 3.2 效果截图
 
 PCT 主界面显示 IP 信息
-![Image](https://github.com/user-attachments/assets/6fee1c85-578f-48bd-b44b-e8c01c2f9c17)
+![Image](./image/PCT-IPInformationShown.jpg)
 
 IP 信息详细
-![Image](https://github.com/user-attachments/assets/60037ce5-ca58-4a9e-88eb-91f022560a70)
+![Image](./image/PCT-IPInformationDetails.jpg)
