@@ -1,6 +1,6 @@
 # PCT Patches for PVE
 
-[中文文档](https://github.com/lurenJBD/PCT-pacthes/blob/main/README-CN.md) | [English](https://github.com/lurenJBD/PCT-pacthes/blob/main/README.md)
+[中文](README-CN.md) | English
 
 ---
 
@@ -66,7 +66,7 @@ Usage: `Patch-for-PCT-to-support-oci.sh [options]`
 
 ### Steps to create a Redroid container
 
-Download a template from the Release section, recommended to use lineage19.1-x86_64-houdini-magisk-gapps.tar.gz
+Download a template from the [Release](https://github.com/lurenJBD/PCT-patches/releases) section, recommended to use [`lineage19.1-x86_64-houdini-magisk-gapps.tar.gz`](https://github.com/lurenJBD/PCT-patches/releases/download/lineage/lineage19.1-x86_64-houdini-magisk-gapps.tar.gz)
 
 When creating containers **Don't check the box** Unprivileged container, enter any password as it won't take effect.
 
@@ -89,10 +89,10 @@ For more parameters about `lxc.init.cmd`, please check [redroid-doc](https://git
 ### Screenshots
 
 Mount Entry feature added for OCI type containers (for OCI containers only)
-![Image](https://github.com/user-attachments/assets/660b1df1-4ad6-49bc-8982-617b115af164)
+![Image](./image/OCI-MountEntry.jpg)
 
 Apparmor profile, lxc.init.cmd and lxc.mount.auto added for OCI type containers (the latter two are for OCI containers only)
-![Image](https://github.com/user-attachments/assets/0b0dfee6-564a-4363-ad3b-a68e1b5ceaf4)
+![Image](./image/OCI-ApparmorProfile-lxc.jpg)
 
 ### Add IP Info Display Interface to PCT WebUI
 
@@ -116,7 +116,7 @@ bash Patch-for-PVE-WebUI-Display-IPinfo-beta.sh -R
 ### Screenshots
 
 IP information shown in PCT main interface
-![Image](https://github.com/user-attachments/assets/6fee1c85-578f-48bd-b44b-e8c01c2f9c17)
+![Image](./image/PCT-IPInformationShown.jpg)
 
 IP information details
-![Image](https://github.com/user-attachments/assets/60037ce5-ca58-4a9e-88eb-91f022560a70)
+![Image](./image/PCT-IPInformationDetails.jpg)
