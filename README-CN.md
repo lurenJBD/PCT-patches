@@ -110,7 +110,7 @@ bash Patch-for-PCT-to-support-oci.sh -c -R
 | `路径`       | `/data`  |
 | `磁盘大小`   | `≥ 25G`  |
 
-### 2.4 [可选]配置显卡
+### 2.4 [可选]配置显卡加速
 
 > [!NOTE]
 > 这个参数等效于手动向配置文件里写 `lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir`
