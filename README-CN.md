@@ -4,22 +4,24 @@
 
 ---
 
-[中文](https://github.com/lurenJBD/PCT-pacthes/blob/main/README-CN.md) | [English](https://github.com/lurenJBD/PCT-pacthes/blob/main/README.md)
+中文 | [English](README.md)
 
-## 警告
-
-> [!CAUTION]
-> 如果曾使用过与 LXC/PCT 相关的其他脚本，运行该脚本可能会导致不可预估的问题。  
-> **集群用户请注意：** 本脚本尚未在集群环境中测试，因此 **不建议在集群环境中使用**。  
-> **兼容性声明：** 本脚本 **仅在全新安装的 `PVE 8.2 ~ 8.4` 系统上测试并通过**。其他版本或非全新安装环境可能存在未知风险。未在 ARM64 架构的 PVE 上测试过，不建议 ARM64 版本 PVE 用户使用！！！  
-> 使用本脚本前，请备份重要数据。脚本导致的一切数据丢失，由使用者承担，运行脚本视为同意该声明！  
-> 使用本脚本修改后，请不要更新 PVE 版本，如需要更新 PVE 版本前请务必恢复修改，避免意外发生  
-> 如果之前使用旧版脚本，请先恢复一次，在应用新版的补丁，本次补丁移除了 `PVE 8.0 和 8.1` 的支持
+## 0. 警告信息
 
 > [!IMPORTANT]
-> 运行脚本修改后，会对部分别的 PCT 容器产生影响，比如 PCT 容器 里运行 Docker 或挂载 NFS  
-> 为避免发生此类影响，请不要将 **Redroid(OCI) 容器** 设为开机自启动，推荐设置一个 Debian 之类的容器自启动  
-> 如果不想设置自启动，建议 (自 PVE 系统首次运行以来）第一启动 PCT 容器为非 OCI 容器，就是说运行 OCI 容器前，请先运行一个非 OCI 容器
+> 1. 在脚本修改后，会对部分 LXC 容器产生影响，如：在 Debian LXC 容器内运行 Docker 或挂载 NFS  
+> 2. 为避免发生此类影响，请不要将 **Redroid LXC 容器** 设为开机自启动  
+> 3. 如果不想手动设置自启动，请在 PVE 系统首次运行后先创建一个标准 VM 容器，后再创建 Redroid LXC 容器
+
+> [!WARNING] 
+> 1. 关于 PVE 集群模式：本脚本尚未在集群环境中测试，不建议在集群模式中使用  
+> 2. **兼容性声明：** 本脚本 **仅在全新安装的 `PVE 8.2 ~ 8.4` 系统上测试并通过**。其他版本或非全新安装环境可能存在未知风险。未在 ARM64 架构的 PVE 上测试过，不建议 ARM64 版本 PVE 用户使用！！！  
+> 3. 如果之前使用旧版脚本，请先恢复一次，在应用新版的补丁，本次补丁移除了 `PVE 8.0 和 8.1` 的支持
+
+> [!CAUTION]
+> 1. 如果曾使用过与 LXC/PCT 相关的脚本后，再使用本脚本可能会导致不可预估的问题（反之亦然）。  
+> 2. 使用本脚本前，请备份重要数据。脚本导致的一切数据丢失，由使用者承担，运行脚本视为同意该声明！  
+> 3. 使用本脚本修改后，请不要更新 PVE 版本，如需要更新 PVE 版本前请务必恢复修改，避免意外发生  
 
 ## 1. 安装补丁
 
@@ -65,6 +67,10 @@ bash Patch-for-PCT-to-support-oci.sh -c -R
 
 ---
 
+> [!CAUTION]
+> 创建 Redroid LXC 容器后，发现容器选项无 `lxc.init.cmd` 和 `Ixc.mount.auto` 选项，容器资源内添加无 `Mount Entry` 选项  
+> 请卸载补丁后重启 PVE，然后重装补丁再次重启 PVE 后再尝试新建容器
+
 ## 2. 创建 Redroid LXC 容器
 
 > [!IMPORTANT]
@@ -104,7 +110,7 @@ bash Patch-for-PCT-to-support-oci.sh -c -R
 > [!Tip]
 > 若提示无显卡，请尝试`更新 PVE 设备 ID 数据库` 以及 `更新 PVE 显卡驱动`，然后重启 PVE 主机，再试
 
-点击 `添加(Add)` 添加一个 `硬件直通(Mount Entry)`，在 `Soucre Path` 中填入 `/dev/dri`，在 `Target Path` 中填入 `/dev/dri`，`Create Type` 选 `dir`
+点击 `添加(Add)` 添加一个 `Mount Entry`，在 `Soucre Path` 中填入 `/dev/dri`，在 `Target Path` 中填入 `/dev/dri`，`Create Type` 选 `dir`
 
 | 选项     | 设置的值  |
 | -------- | --------- |

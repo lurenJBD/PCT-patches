@@ -1,6 +1,6 @@
 # PCT Patches for PVE
 
-[中文文档](https://github.com/lurenJBD/PCT-pacthes/blob/main/README-CN.md) | [English](https://github.com/lurenJBD/PCT-pacthes/blob/main/README.md)
+[中文](README-CN.md) | English
 
 ---
 
