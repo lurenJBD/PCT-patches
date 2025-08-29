@@ -1,0 +1,229 @@
+--- /usr/share/perl5/PVE/LXC/Config.pm.bak
++++ /usr/share/perl5/PVE/LXC/Config.pm
+@@ -392,6 +392,18 @@
+     return PVE::JSONSchema::pve_verify_ip($addr, $noerr);
+ }
+ 
++my $common_mount_config = {
++    optional => 1,
++    type => 'string',
++    description => "Defines the automatic mounting behavior for specified filesystems.",
++    pattern => qr/^(ro|mixed|rw)$/,
++};
++
++my $automount_desc = {
++    proc => $common_mount_config,
++    sys => $common_mount_config,
++    cgroup => $common_mount_config,
++};
+ 
+ my $features_desc = {
+     mount => {
+@@ -415,6 +427,15 @@
+ 	    ." Note that this will expose procfs and sysfs contents of the host"
+ 	    ." to the guest.",
+     },
++    autodev => {
++	optional => 1,
++	type => 'boolean',
++	default => 0,
++	description => "Create /dev directory."
++	    ." LXC will automatically create basic device nodes in the /dev directory."
++	    ." This is crucial for ensuring that applications within the container"
++	    ." can access these devices properly.",
++    },
+     keyctl => {
+ 	optional => 1,
+ 	type => 'boolean',
+@@ -480,7 +501,7 @@
+     ostype => {
+ 	optional => 1,
+ 	type => 'string',
+-	enum => [qw(debian devuan ubuntu centos fedora opensuse archlinux alpine gentoo nixos unmanaged)],
++	enum => [qw(debian devuan ubuntu centos fedora opensuse archlinux alpine gentoo nixos oci unmanaged)],
+ 	description => "OS type. This is used to setup configuration inside the container, and corresponds to lxc setup scripts in /usr/share/lxc/config/<ostype>.common.conf. Value 'unmanaged' can be used to skip and OS specific setup.",
+     },
+     console => {
+@@ -585,6 +606,25 @@
+ 	enum => ['shell', 'console', 'tty'],
+ 	default => 'tty',
+     },
++    apparmor => {
++	optional => 1,
++	description => "Apparmor profile. An LXC parameter indicating that the container uses an auto-generated AppArmor profile, dynamically creating basic access rules to ensure security and support normal container operation.",
++	type => 'string',
++	enum => ['generated', 'unconfined'],
++	default => 'generated',
++    },
++    initcmd => {
++	optional => 1,
++	type => 'string',
++	format => 'pve-lxc-initcmd-string',
++	description => "Command to initialize the container with advanced features.",
++    },
++    automount => {
++	optional => 1,
++	type => 'string',
++	format => $automount_desc,
++	description => "Define the automatic mounting options for filesystems like 'proc', 'sys', and 'cgroup'. ",
++    },
+     protection => {
+ 	optional => 1,
+ 	type => 'boolean',
+@@ -642,6 +682,7 @@
+     'lxc.devtty.dir' => 1,
+     'lxc.hook.autodev' => 1,
+     'lxc.autodev' => 1,
++    'lxc.autodev.tmpfs.size' => 1,
+     'lxc.kmsg' => 1,
+     'lxc.mount.fstab' => 1,
+     'lxc.mount.entry' => 1,
+@@ -933,6 +974,18 @@
+     return $dev;
+ }
+ 
++PVE::JSONSchema::register_format('pve-lxc-initcmd-string', \&verify_lxc_initcmd_string);
++sub verify_lxc_initcmd_string {
++    my ($value) = @_;
++
++    # Allow letters, numbers, underscores, slashes, hyphens, periods, spaces and equals signs
++	if ($value && $value !~ /^[a-zA-Z0-9_\-\.\/\s=]+$/) {
++	die "Invalid command format for lxc.init.cmd: only alphanumeric characters, slashes, hyphens, spaces and equals signs are allowed.\n";
++    }
++
++    return $value;
++}
++
+ my $dev_desc = {
+     path => {
+ 	optional => 1,
+@@ -978,6 +1031,59 @@
+     }
+ }
+ 
++PVE::JSONSchema::register_format('pve-lxc-entry-string', \&verify_lxc_entry_string);
++sub verify_lxc_entry_string {
++    my ($entry, $noerr) = @_;
++
++    # do not allow /./ or /../ or /.$ or /..$
++    # enforce /dev/ at the beginning
++
++    if (
++	$entry =~ m@/\.\.?(?:/|$)@ ||
++	$entry !~ m!^/dev/!
++    ) {
++	return undef if $noerr;
++	die "$entry is not a valid device path\n";
++    }
++
++    return $entry;
++}
++
++my $entry_desc = {
++    path1 => {
++	optional => 1,
++	type => 'string',
++	default_key => 1,
++	format => 'pve-lxc-entry-string',
++	format_description => 'Path 1',
++	description => 'Device to pass through to the container',
++	verbose_description => 'Path to the device to pass through to the container',
++    },
++    path2 => {
++	optional => 1,
++	type => 'string',
++	default_key => 1,
++	format => 'pve-lxc-entry-string',
++	format_description => 'Path 2',
++	description => 'Device to pass through to the container',
++	verbose_description => 'Path to the device to pass through to the container',
++    },
++    create => {
++	optional => 1,
++	type => 'string',
++	format_description => 'Create mode',
++	description => 'Create mode to be set on the entry',
++    },
++};
++
++for (my $i = 0; $i < $MAX_DEVICES; $i++) {
++    $confdesc->{"entry$i"} = {
++	optional => 1,
++	type => 'string', format => $entry_desc,
++	description => "Device to pass through to the container",
++    }
++}
++
+ sub parse_pct_config {
+     my ($filename, $raw, $strict) = @_;
+ 
+@@ -1350,6 +1456,35 @@
+     return $res;
+ }
+ 
++sub parse_entry {
++    my ($class, $entry_string, $noerr, $entryname) = @_;
++
++    my $res = eval { PVE::JSONSchema::parse_property_string($entry_desc, $entry_string) };
++    if ($@) {
++	return undef if $noerr;
++	die $@;
++    }
++
++    my $name = $entryname || "entry";
++
++    if (!defined($res->{create})) {
++	return undef if $noerr;
++	die "create is not defined for $name\n";
++    }
++
++    if (!defined($res->{path1})) {
++	return undef if $noerr;
++	die "path1 is not defined for $name\n";
++    }
++
++    if (!defined($res->{path2})) {
++	return undef if $noerr;
++	die "path2 is not defined for $name\n";
++    }
++
++    return $res;
++}
++
+ sub print_volume {
+     my ($class, $key, $volume) = @_;
+ 
+@@ -1892,4 +2027,33 @@
+     }
+ }
+ 
++sub foreach_mount_entry {
++    my ($class, $conf, $func, @param) = @_;
++
++    for my $key (keys %$conf) {
++	next if $key !~ m/^entry(\d+)$/;
++
++	my $entry = $class->parse_entry($conf->{$key}, undef, $key);
++
++	$func->($key, $entry, @param);
++    }
++}
++
++sub parse_automount {
++    my ($class, $value) = @_;
++
++    return if !$value;
++
++    my @parts;
++    foreach my $pair (split(',', $value)) {
++	if ($pair =~ /^(proc|sys|cgroup)=(ro|mixed|rw)$/) {
++		push @parts, "$1:$2";
++	    } else {
++		die "invalid automount option: $pair\n";
++	    }
++    }
++
++    return join(' ', @parts);
++}
++
+ 1;

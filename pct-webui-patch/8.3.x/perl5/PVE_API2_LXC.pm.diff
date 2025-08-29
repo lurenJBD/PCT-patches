@@ -1,0 +1,50 @@
+--- /usr/share/perl5/PVE/API2/LXC.pm.bak
++++ /usr/share/perl5/PVE/API2/LXC.pm
+@@ -2551,6 +2551,11 @@
+ 		    description => 'The MAC address of the interface',
+ 		    optional => 0,
+ 		},
++		"hardware-address" => {
++		    type => 'string',
++		    description => 'The MAC address of the interface',
++		    optional => 0,
++		},
+ 		inet => {
+ 		    type => 'string',
+ 		    description => 'The IPv4 address of the interface',
+@@ -2561,8 +2566,33 @@
+ 		    description => 'The IPv6 address of the interface',
+ 		    optional => 1,
+ 		},
+-	    }
+-	},
++		"ip-addresses" => {
++		    type => 'array',
++		    description => 'The addresses of the interface',
++		    optional => 0,
++		    items => {
++			    type => 'object',
++			    properties => {
++			    prefix => {
++				    type => 'integer',
++				    description => 'IP-Prefix',
++				    optional => 1,
++				},
++			    "ip-address" => {
++				    type => 'string',
++				    description => 'IP-Address',
++				    optional => 1,
++				},
++			    "ip-address-type" => {
++				    type => 'string',
++				    description => 'IP-Family',
++				    optional => 1,
++				},
++			    }
++			}
++		},
++		},
++	}
+     },
+     code => sub {
+ 	my ($param) = @_;

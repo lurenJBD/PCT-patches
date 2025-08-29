@@ -1,0 +1,207 @@
+--- /dev/null
++++ /usr/share/perl5/PVE/LXC/Setup/Oci.pm
+@@ -0,0 +1,204 @@
++package PVE::LXC::Setup::Oci;
++
++use strict;
++use warnings;
++
++use PVE::Tools;
++use PVE::LXC::Setup::Base;
++
++use base qw(PVE::LXC::Setup::Base);
++
++sub new {
++    my ($class, $conf, $rootdir, $os_release) = @_;
++
++    my $self = $class->SUPER::new($conf, $rootdir, $os_release);
++
++    $conf->{ostype} = "oci";
++
++    $conf->{cmode} = 'shell';
++
++    my $oci_conf = $self->parse_oci_config();
++    if ($oci_conf) {
++
++	if ($oci_conf->{initcmd}) {
++	    $conf->{initcmd} = $oci_conf->{initcmd};
++	}
++
++	if ($oci_conf->{environment}) {
++	    $conf->{lxc} = [] if !$conf->{lxc};
++	    foreach my $env (@{$oci_conf->{environment}}) {
++		push @{$conf->{lxc}}, ["lxc.environment", $env];
++	    }
++	}
++
++	if ($oci_conf->{apparmor}) {
++	    $conf->{apparmor} = $oci_conf->{apparmor};
++	}
++
++	if ($oci_conf->{automount}) {
++	    $conf->{automount} = $oci_conf->{automount};
++	}
++
++	if ($oci_conf->{features}) {
++	    $conf->{features} = $oci_conf->{features};
++	}
++	
++	foreach my $key (keys %$oci_conf) {
++	    if ($key =~ /^entry\d+$/) {
++		$conf->{$key} = $oci_conf->{$key};
++	    }
++	}
++    }
++
++    return $self;
++}
++
++sub parse_oci_config {
++    my ($self) = @_;
++    
++    my $oci_config = eval {
++	my $rootdir = $self->{rootdir};
++	if (-f "$rootdir/oci-config") {
++	    return PVE::Tools::file_get_contents("$rootdir/oci-config");
++	}
++	return undef;
++    };
++    
++    return undef if !$oci_config;
++
++    my $conf = {};
++    my @lines = split(/\n/, $oci_config);
++    my $features = [];
++    my $mount_entries = [];
++    my $entry_count = 0;
++    
++    foreach my $line (@lines) {
++	next if $line =~ /^\s*$/;
++	next if $line =~ /^\s*#/;
++	
++	if ($line =~ /^lxc\.environment\s*=\s*(.+)$/) {
++	    my $env = $1;
++	    push @{$conf->{environment}}, $env;
++	} elsif ($line =~ /^lxc\.init\.cmd\s*=\s*(.+)$/) {
++	    $conf->{initcmd} = $1;
++	} elsif ($line =~ /^lxc\.apparmor\.profile\s*=\s*(\S+)$/) {
++	    $conf->{apparmor} = $1;
++	} elsif ($line =~ /^lxc\.mount\.auto\s*=\s*(.+)$/) {
++	    my $mount_auto = $1;
++	    my @parts = split(/\s+/, $mount_auto);
++	    my @formatted_parts;
++	    foreach my $part (@parts) {
++		if ($part =~ /^(\w+):(\w+)$/) {
++		    push @formatted_parts, "$1=$2";
++		}
++	    }
++	    $conf->{automount} = join(',', @formatted_parts) if @formatted_parts;
++	} elsif ($line =~ /^lxc\.autodev\s*=\s*1$/) {
++	    push @$features, "autodev=1";
++	} elsif ($line =~ /^lxc\.mount\.entry\s*=\s*(.+)$/) {
++	    my $entry = $1;
++	    if ($entry =~ m|^\s*/dev/fuse\s+|) {
++		push @$features, "fuse=1";
++	    } else {
++		my ($path1, $path2, $fstype, $opts) = $entry =~ /^(\S+)\s+(\S+)\s+(\S+)\s+([^,]+(?:,[^,]+)*)(?:\s+\d+\s+\d+)?$/;
++		if ($path1 && $path2) {
++		    my $create = "";
++		    if ($opts && $opts =~ /\bcreate=(\w+)\b/) {
++			$create = $1;
++		    }
++		    my $entry_conf = {
++			path1 => $path1,
++			path2 => $path2,
++		    };
++		    $entry_conf->{create} = $create if $create;
++		    $mount_entries->[$entry_count] = $entry_conf;
++		    $entry_count++;
++		}
++	    }
++	}
++    }
++
++    if (@$features) {
++	$conf->{features} = join(',', @$features);
++    }
++
++    for (my $i = 0; $i < @$mount_entries; $i++) {
++	if (my $entry = $mount_entries->[$i]) {
++	    my $entry_conf = [];
++	    push @$entry_conf, "path1=$entry->{path1}" if $entry->{path1};
++	    
++	    if ($entry->{path2}) {
++		my $path2 = $entry->{path2};
++		if ($path2 !~ /^\//) {
++		    $path2 = "/$path2";
++		}
++		push @$entry_conf, "path2=$path2";
++	    }
++	    
++	    push @$entry_conf, "create=$entry->{create}" if $entry->{create};
++	    
++	    $conf->{"entry$i"} = join(',', @$entry_conf) if @$entry_conf;
++	}
++    }
++    
++    return $conf;
++}
++
++sub template_fixup {
++    my ($self, $conf) = @_;
++}
++
++sub setup_network {
++    my ($self, $conf) = @_;
++}
++
++sub set_hostname {
++    my ($self, $conf) = @_;
++}
++
++sub set_dns {
++    my ($self, $conf) = @_;
++}
++
++sub set_timezone {
++    my ($self, $conf) = @_;
++}
++
++sub setup_init {
++    my ($self, $conf) = @_;
++}
++
++sub set_user_password {
++    my ($self, $conf, $user, $opt_password) = @_;
++}
++
++sub unified_cgroupv2_support {
++    my ($self, $init) = @_;
++    return 1; # faking it won't normally hurt ;-)
++}
++
++sub get_ct_init_path {
++    my ($self) = @_;
++    return;
++}
++
++sub ssh_host_key_types_to_generate {
++    my ($self) = @_;
++    return;
++}
++
++# hooks
++
++sub pre_start_hook {
++    my ($self, $conf) = @_;
++}
++
++sub post_clone_hook {
++    my ($self, $conf) = @_;
++}
++
++sub post_create_hook {
++    my ($self, $conf, $root_password, $ssh_keys) = @_;
++}
++
++1;

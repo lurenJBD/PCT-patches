@@ -1,0 +1,574 @@
+--- /usr/share/pve-manager/js/pvemanagerlib.js.bak
++++ /usr/share/pve-manager/js/pvemanagerlib.js
+@@ -3107,6 +3107,17 @@
+ 	}
+     },
+ 
++    lxc_entry_count: 256,
++
++    forEachLxcEntry: function(func) {
++	for (let i = 0; i < PVE.Utils.lxc_entry_count; i++) {
++	    let cont = func(i, `entry${i}`);
++	    if (!cont && cont !== undefined) {
++		return;
++	    }
++	}
++    },
++
+     hardware_counts: {
+ 	net: 32,
+ 	usb: 14,
+@@ -34984,6 +34995,105 @@
+ 	},
+     ],
+ });
++Ext.define('PVE.lxc.EntryInputPanel', {
++    extend: 'Proxmox.panel.InputPanel',
++    mixins: ['Proxmox.Mixin.CBind'],
++
++    autoComplete: false,
++
++    controller: {
++	xclass: 'Ext.app.ViewController',
++    },
++
++    setVMConfig: function(vmconfig) {
++	let me = this;
++	me.vmconfig = vmconfig;
++
++	if (me.isCreate) {
++	    PVE.Utils.forEachLxcEntry((i, name) => {
++		if (!Ext.isDefined(vmconfig[name])) {
++		    me.confid = name;
++		    me.down('field[name=entryid]').setValue(i);
++		    return false;
++		}
++		return undefined;
++	    });
++	}
++    },
++
++    onGetValues: function(values) {
++	let me = this;
++	let confid = me.isCreate ? "entry" + values.entryid : me.confid;
++	delete values.entryid;
++	let val = PVE.Parser.printPropertyString(values, 'path');
++	let ret = {};
++	ret[confid] = val;
++	return ret;
++    },
++
++    items: [
++	{
++	    xtype: 'proxmoxintegerfield',
++	    name: 'entryid',
++	    minValue: 0,
++	    maxValue: 6,
++	    hidden: true,
++	    allowBlank: false,
++	    disabled: true,
++	    cbind: {
++		disabled: '{!isCreate}',
++	    },
++	},
++	{
++	    xtype: 'textfield',
++	    name: 'path1',
++	    fieldLabel: gettext('Source Path'),
++	    labelWidth: 120,
++	    editable: true,
++	    allowBlank: false,
++	    emptyText: '/dev/xyz',
++	    validator: function(v) {
++		    if (!v.startsWith('/dev/')) {
++			return gettext("Path must start with /dev/");
++		    }
++		    if (!/^\/dev\/[\w/-]+$/.test(v)) {
++			return gettext("Invalid path format");
++		    }
++			return true;
++	    },
++	},
++	{
++	    xtype: 'textfield',
++	    name: 'path2',
++	    fieldLabel: gettext('Target Path'),
++	    labelWidth: 120,
++	    editable: true,
++	    allowBlank: false,
++	    emptyText: '/dev/xyz',
++	    validator: function(v) {
++		    if (!v.startsWith('/dev/')) {
++			return gettext("Path must start with /dev/");
++		    }
++		    if (!/^\/dev\/[\w/-]+$/.test(v)) {
++			return gettext("Invalid path format");
++		    }
++			return true;
++	    },
++	},
++	{
++	    xtype: 'combo',
++	    name: 'create',
++	    fieldLabel: gettext('Create Type'),
++	    labelWidth: 120,
++	    editable: false,
++	    allowBlank: false,
++	    store: ['file', 'dir'],
++	    value: 'file',
++	    triggerAction: 'all',
++	    emptyText: gettext('Select create type'),
++	},
++    ],
++});
+ Ext.define('PVE.lxc.DeviceInputPanel', {
+     extend: 'Proxmox.panel.InputPanel',
+     mixins: ['Proxmox.Mixin.CBind'],
+@@ -35091,6 +35201,59 @@
+     ],
+ });
+ 
++Ext.define('PVE.lxc.EntryEdit', {
++    extend: 'Proxmox.window.Edit',
++
++    vmconfig: undefined,
++
++    isAdd: true,
++    width: 450,
++
++    initComponent: function() {
++	let me = this;
++
++	me.isCreate = !me.confid;
++
++	let ipanel = Ext.create('PVE.lxc.EntryInputPanel', {
++	    confid: me.confid,
++	    isCreate: me.isCreate,
++	    pveSelNode: me.pveSelNode,
++	});
++
++	let subject;
++	if (me.isCreate) {
++	    subject = gettext('Entry');
++	} else {
++	    subject = gettext('Entry') + ' (' + me.confid + ')';
++	}
++
++	Ext.apply(me, {
++	    subject: subject,
++	    items: [ipanel],
++	});
++
++	me.callParent();
++
++	me.load({
++	    success: function(response, options) {
++		ipanel.setVMConfig(response.result.data);
++		if (me.isCreate) {
++		    return;
++		}
++
++		let data = PVE.Parser.parsePropertyString(response.result.data[me.confid], 'path');
++
++		let values = {
++		    path1: data.path1,
++			path2: data.path2,
++		    create: data.create,
++		};
++
++		ipanel.setValues(values);
++	    },
++	});
++    },
++});
+ Ext.define('PVE.lxc.DeviceEdit', {
+     extend: 'Proxmox.window.Edit',
+ 
+@@ -35407,6 +35570,124 @@
+ 	});
+     },
+ });
++Ext.define('PVE.lxc.InitCmdInputPanel', {
++    extend: 'Proxmox.panel.InputPanel',
++    xtype: 'pveLxcInitCmdInputPanel',
++
++    items: [
++        {
++            fieldLabel: gettext('lxc.init.cmd'),
++            xtype: 'textfield',
++            name: 'initcmd',
++            allowBlank: true,
++            width: 500,
++        },
++    ],
++
++    onGetValues: function(values) {
++        if (!values.initcmd || values.initcmd.trim() === '') {
++			values.delete = 'initcmd';
++			delete values.initcmd;
++        }
++        
++		return values;
++    },
++
++    setValues: function(values) {
++        this.callParent([values]);
++    },
++
++    initComponent: function() {
++        let me = this;
++        me.callParent();
++    },
++});
++Ext.define('PVE.lxc.AutomountInputPanel', {
++    extend: 'Proxmox.panel.InputPanel',
++    xtype: 'pveLxcAutomountInputPanel',
++
++    mountOptions: ['proc', 'sys', 'cgroup'],
++
++    items: [
++        {
++            xtype: 'proxmoxKVComboBox',
++            name: 'proc',
++            fieldLabel: gettext('proc'),
++            deleteEmpty: true,
++            comboItems: [
++                ['None', 'None'], 
++                ['ro', 'ro'],
++                ['mixed', 'mixed'],
++                ['rw', 'rw']
++            ],
++            value: 'None',
++        },
++        {
++            xtype: 'proxmoxKVComboBox',
++            name: 'sys',
++            fieldLabel: gettext('sys'),
++            deleteEmpty: true,
++            comboItems: [
++                ['None', 'None'], 
++                ['ro', 'ro'],
++                ['mixed', 'mixed'],
++                ['rw', 'rw']
++            ],
++            value: 'None',
++        },
++        {
++            xtype: 'proxmoxKVComboBox',
++            name: 'cgroup',
++            fieldLabel: gettext('cgroup'),
++            deleteEmpty: true,
++            comboItems: [
++                ['None', 'None'], 
++                ['ro', 'ro'],
++                ['mixed', 'mixed'],
++                ['rw', 'rw']
++            ],
++            value: 'None',
++        },
++    ],
++
++    onGetValues: function(values) {
++        var result = [];
++
++        this.mountOptions.forEach(function(option) {
++            if (values[option] && values[option] !== 'None') {
++                result.push(option + '=' + values[option]);
++            }
++            delete values[option]
++        });
++
++		if (result.length) {
++			values.automount = result.join(',');
++		} else {
++			values.delete = 'automount';
++		}
++
++        return values;
++    },
++
++    setValues: function(values) {
++        var me = this;
++
++        me.mountOptions.forEach(function(option) {
++            if (values.automount && values.automount.includes(option + '=')) {
++                values[option] = values.automount.split(',').find(function(item) {
++                    return item.startsWith(option + '=');
++                }).split('=')[1];
++            }
++        });
++
++        this.callParent([values]);
++    },
++
++    initComponent: function() {
++        let me = this;
++        me.callParent();
++    },
++});
+ Ext.define('PVE.lxc.FeaturesInputPanel', {
+     extend: 'Proxmox.panel.InputPanel',
+     xtype: 'pveLxcFeaturesInputPanel',
+@@ -35448,6 +35729,15 @@
+ 	},
+ 	{
+ 	    xtype: 'proxmoxcheckbox',
++	    fieldLabel: gettext('AutoDev'),
++	    name: 'autodev',
++	    bind: {
++		disabled: '{unprivileged}',
++		boxLabel: '{privilegedOnly}',
++	    },
++	},
++	{
++	    xtype: 'proxmoxcheckbox',
+ 	    name: 'nfs',
+ 	    fieldLabel: 'NFS',
+ 	    bind: {
+@@ -35526,6 +35816,30 @@
+     },
+ });
+ 
++Ext.define('PVE.lxc.InitCmdEdit', {
++    extend: 'Proxmox.window.Edit',
++    xtype: 'pveLxcInitCmdEdit',
++
++    subject: gettext('lxc.init.cmd'),
++    autoLoad: true,
++    width: 600,
++
++    items: [{
++	xtype: 'pveLxcInitCmdInputPanel',
++    }],
++});
++Ext.define('PVE.lxc.AutomountEdit', {
++    extend: 'Proxmox.window.Edit',
++    xtype: 'pveLxcAutomountEdit',
++
++    subject: gettext('lxc.mount.auto'),
++    autoLoad: true,
++    width: 350,
++
++    items: [{
++	xtype: 'pveLxcAutomountInputPanel',
++    }],
++});
+ Ext.define('PVE.lxc.FeaturesEdit', {
+     extend: 'Proxmox.window.Edit',
+     xtype: 'pveLxcFeaturesEdit',
+@@ -36731,6 +37045,36 @@
+ 		    },
+ 		} : undefined,
+ 	    },
++	    apparmor: {
++		header: gettext('Apparmor profile'),
++		defaultValue: 'generated',
++		editor: caps.vms['VM.Config.Options'] ? {
++		    xtype: 'proxmoxWindowEdit',
++		    subject: gettext('Apparmor profile'),
++		    items: {
++			xtype: 'proxmoxKVComboBox',
++			name: 'apparmor',
++			deleteEmpty: true,
++			value: '__default__',
++			comboItems: [
++			    ['__default__', Proxmox.Utils.defaultText + " (generated)"],
++			    ['generated', "generated"],
++			    ['unconfined', "unconfined"],
++			],
++			fieldLabel: gettext('Apparmor profile'),
++		    },
++		} : undefined,
++	    },
++	    initcmd: {
++		header: gettext('lxc.init.cmd'),
++		defaultValue: Proxmox.Utils.noneText,
++		editor: 'PVE.lxc.InitCmdEdit',
++	    },
++	    automount: {
++		header: gettext('lxc.mount.auto'),
++		defaultValue: Proxmox.Utils.noneText,
++		editor: 'PVE.lxc.AutomountEdit',
++	    },
+ 	    protection: {
+ 		header: gettext('Protection'),
+ 		defaultValue: false,
+@@ -36823,11 +37167,22 @@
+ 
+ 	me.callParent();
+ 
++	me.store.addFilter(new Ext.util.Filter({
++		filterFn: function(item) {
++			let ostype = me.store.getById('ostype');
++			if (ostype && ostype.data.value !== 'oci') {
++				return !['initcmd', 'automount'].includes(item.data.key);
++			}
++			return true;
++		}
++	}));
++
+ 	me.on('activate', me.rstore.startUpdate);
+ 	me.on('destroy', me.rstore.stopUpdate);
+ 	me.on('deactivate', me.rstore.stopUpdate);
+ 
+ 	me.mon(me.getStore(), 'datachanged', function() {
++	    me.store.filter();
+ 	    set_button_status();
+ 	});
+     },
+@@ -37041,6 +37396,76 @@
+ 	    throw "no VM ID specified";
+ 	}
+ 
++    var createAddMenu = function() {
++	return new Ext.menu.Menu({
++	    listeners: {
++		beforeshow: function(menu) {
++		    Proxmox.Utils.API2Request({
++			url: `/api2/extjs/nodes/${nodename}/lxc/${vmid}/config`,
++			method: 'GET',
++			success: function(response) {
++			    let ostype = response.result.data.ostype;
++			    let mountEntry = menu.items.find(item => item.text === gettext('Mount Entry'));
++			    let devicePassthrough = menu.items.find(item => item.text === gettext('Device Passthrough'));
++			    if (mountEntry && devicePassthrough) {
++				mountEntry.setHidden(ostype !== 'oci');
++				devicePassthrough.setHidden(ostype === 'oci');
++			    }
++			},
++		    });
++		}
++	    },
++	    items: [
++		{
++		    text: gettext('Mount Point'),
++		    iconCls: 'fa fa-fw fa-hdd-o black',
++		    disabled: !caps.vms['VM.Config.Disk'],
++		    handler: function() {
++			Ext.create('PVE.lxc.MountPointEdit', {
++			    autoShow: true,
++			    url: `/api2/extjs/${baseurl}`,
++			    unprivileged: me.getObjectValue('unprivileged'),
++			    pveSelNode: me.pveSelNode,
++			    listeners: {
++				destroy: () => me.reload(),
++			    },
++			});
++		    },
++		},
++		{
++		    text: gettext('Mount Entry'),
++		    iconCls: 'pve-itype-icon-pci',
++		    disabled: Proxmox.UserName !== 'root@pam',
++		    handler: function() {
++			Ext.create('PVE.lxc.EntryEdit', {
++			    autoShow: true,
++			    url: `/api2/extjs/${baseurl}`,
++			    pveSelNode: me.pveSelNode,
++			    listeners: {
++				destroy: () => me.reload(),
++			    },
++			});
++		    },
++		},
++		{
++		    text: gettext('Device Passthrough'),
++		    iconCls: 'pve-itype-icon-pci',
++		    disabled: Proxmox.UserName !== 'root@pam',
++		    handler: function() {
++			Ext.create('PVE.lxc.DeviceEdit', {
++			    autoShow: true,
++			    url: `/api2/extjs/${baseurl}`,
++			    pveSelNode: me.pveSelNode,
++			    listeners: {
++				destroy: () => me.reload(),
++			    },
++			});
++		    },
++		},
++	    ],
++	});
++    };
++
+ 	var caps = Ext.state.Manager.get('GuiCap');
+ 	var diskCap = caps.vms['VM.Config.Disk'];
+ 
+@@ -37150,6 +37575,18 @@
+ 	    };
+ 	});
+ 
++	let entryeditor = Proxmox.UserName === 'root@pam' ? 'PVE.lxc.EntryEdit' : undefined;
++
++	PVE.Utils.forEachLxcEntry(function(i, confid) {
++	    rows[confid] = {
++		group: 8,
++		order: i,
++		tdCls: 'pve-itype-icon-pci',
++		editor: entryeditor,
++		header: gettext('Entry') + ' (' + confid + ')',
++	    };
++	});
++
+ 	var baseurl = 'nodes/' + nodename + '/lxc/' + vmid + '/config';
+ 
+ 	me.selModel = Ext.create('Ext.selection.RowModel', {});
+@@ -37327,6 +37764,7 @@
+ 	    let isUnusedDisk = key.match(/^unused\d+/);
+ 	    let isUsedDisk = isDisk && !isUnusedDisk;
+ 	    let isDevice = key.match(/^dev\d+/);
++		let isEntry = key.match(/^entry\d+/);
+ 
+ 	    let noedit = isDelete || !rowdef.editor;
+ 	    if (!noedit && Proxmox.UserName !== 'root@pam' && key.match(/^mp\d+$/)) {
+@@ -37342,7 +37780,7 @@
+ 	    reassign_menuitem.setDisabled(isRootFS);
+ 	    resize_menuitem.setDisabled(isUnusedDisk);
+ 
+-	    remove_btn.setDisabled(!(isDisk || isDevice) || isRootFS || !diskCap || pending);
++	    remove_btn.setDisabled(!(isDisk || isDevice || isEntry) || isRootFS || !diskCap || pending);
+ 	    revert_btn.setDisabled(!pending);
+ 
+ 	    remove_btn.setText(isUsedDisk ? remove_btn.altText : remove_btn.defaultText);
+@@ -37378,41 +37816,7 @@
+ 	    tbar: [
+ 		{
+ 		    text: gettext('Add'),
+-		    menu: new Ext.menu.Menu({
+-			items: [
+-			    {
+-				text: gettext('Mount Point'),
+-				iconCls: 'fa fa-fw fa-hdd-o black',
+-				disabled: !caps.vms['VM.Config.Disk'],
+-				handler: function() {
+-				    Ext.create('PVE.lxc.MountPointEdit', {
+-					autoShow: true,
+-					url: `/api2/extjs/${baseurl}`,
+-					unprivileged: me.getObjectValue('unprivileged'),
+-					pveSelNode: me.pveSelNode,
+-					listeners: {
+-					    destroy: () => me.reload(),
+-					},
+-				    });
+-				},
+-			    },
+-			    {
+-				text: gettext('Device Passthrough'),
+-				iconCls: 'pve-itype-icon-pci',
+-				disabled: Proxmox.UserName !== 'root@pam',
+-				handler: function() {
+-				    Ext.create('PVE.lxc.DeviceEdit', {
+-					autoShow: true,
+-					url: `/api2/extjs/${baseurl}`,
+-					pveSelNode: me.pveSelNode,
+-					listeners: {
+-					    destroy: () => me.reload(),
+-					},
+-				    });
+-				},
+-			    },
+-			],
+-		    }),
++		    menu: createAddMenu(),
+ 		},
+ 		edit_btn,
+ 		remove_btn,

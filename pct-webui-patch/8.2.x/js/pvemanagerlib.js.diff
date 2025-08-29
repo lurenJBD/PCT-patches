@@ -1,0 +1,526 @@
+--- /usr/share/pve-manager/js/pvemanagerlib.js.bak
++++ /usr/share/pve-manager/js/pvemanagerlib.js
+@@ -15005,6 +15005,10 @@
+ 	    // in this specific api call
+ 	    // we already have the correct value for the usage
+ 	    calculate: Ext.identityFn,
++	    cbind: {
++			hidden: '{isLxc}',
++			disabled: '{isLxc}',
++	    },
+ 	},
+ 	{
+ 	    itemId: 'memory',
+@@ -15012,16 +15016,9 @@
+ 	    title: gettext('Memory usage'),
+ 	    valueField: 'mem',
+ 	    maxField: 'maxmem',
+-	},
+-	{
+-	    itemId: 'swap',
+-	    iconCls: 'fa fa-refresh fa-fw',
+-	    title: gettext('SWAP usage'),
+-	    valueField: 'swap',
+-	    maxField: 'maxswap',
+ 	    cbind: {
+-		hidden: '{isQemu}',
+-		disabled: '{isQemu}',
++		hidden: '{isLxc}',
++		disabled: '{isLxc}',
+ 	    },
+ 	},
+ 	{
+@@ -15040,20 +15037,235 @@
+ 		    return Proxmox.Utils.render_size_usage(used, max);
+ 		}
+ 	    },
++	    cbind: {
++			hidden: '{isLxc}',
++			disabled: '{isLxc}',
++	    },
+ 	},
+ 	{
++	    xtype: 'container',
++	    layout: {
++			type: 'vbox',
++			align: 'stretch',
++		},
++	    defaults: {
++			xtype: 'container',
++			layout: {
++				type: 'hbox',
++				align: 'stretch',
++			},
++			defaults: {
++				xtype: 'pmxInfoWidget',
++				flex: 1,
++				padding: '2 10',
++			},
++		},
++	    cbind: {
++			hidden: '{isQemu}',
++			disabled: '{isQemu}',
++	    },
++		items: [
++			{
++				items: [
++					{
++						itemId: 'lxcCpu',
++						iconCls: 'fa fa-fw pmx-itype-icon-processor pmx-icon',
++						title: gettext('CPU usage'),
++						valueField: 'cpu',
++						maxField: 'cpus',
++						renderer: Proxmox.Utils.render_cpu_usage,
++						// in this specific api call
++						// we already have the correct value for the usage
++						calculate: Ext.identityFn,
++					},
++					{
++						itemId: 'lxcMemory',
++						iconCls: 'fa fa-fw pmx-itype-icon-memory pmx-icon',
++						title: gettext('RAM usage'),
++						valueField: 'mem',
++						maxField: 'maxmem',
++					},
++				],
++			},
++			{
++				items: [
++					{
++						itemId: 'lxcSwap',
++						iconCls: 'fa fa-refresh fa-fw',
++						title: gettext('SWAP usage'),
++						valueField: 'swap',
++						maxField: 'maxswap',
++					},
++					{
++						itemId: 'lxcRootfs',
++						iconCls: 'fa fa-hdd-o fa-fw',
++						title: gettext('Rootfs size'),
++						valueField: 'disk',
++						maxField: 'maxdisk',
++						printBar: false,
++						renderer: function(used, max) {
++							var me = this;
++							me.setPrintBar(used > 0);
++							if (used === 0) {
++								return Proxmox.Utils.render_size(max);
++							} else {
++								return Proxmox.Utils.render_size_usage(used, max);
++							}
++						},
++					},
++				],
++			},
++		],
++	},	
++	{
+ 	    xtype: 'box',
+ 	    height: 15,
+ 	},
+ 	{
+-	    itemId: 'ips',
+-	    xtype: 'pveAgentIPView',
++	    itemId: 'agentIPs',
++	    xtype: 'pveIPView',
+ 	    cbind: {
+ 		rstore: '{rstore}',
+ 		pveSelNode: '{pveSelNode}',
+ 		hidden: '{isLxc}',
+ 		disabled: '{isLxc}',
+ 	    },
++	    createUpdateStoreCallback: function(ipview, nodename, vmid) {
++		ipview.ipStore = Ext.create('Proxmox.data.UpdateStore', {
++		    interval: 10000,
++		    storeid: 'pve-qemu-agent-' + vmid,
++		    method: 'POST',
++		    proxy: {
++			type: 'proxmox',
++			url: '/api2/json/nodes/' + nodename + '/qemu/' + vmid + '/agent/network-get-interfaces',
++		    },
++		});
++		ipview.callParent();
++
++		ipview.mon(ipview.ipStore, 'load', function(_store, records, success) {
++		    if (records && records.length) {
++			ipview.nics = records[0].data.result;
++		    } else {
++			ipview.nics = undefined;
++		    }
++		    ipview.updateStatus(!success);
++		});
++	    },
++	    updateStatusCallback: function(ipview, unsuccessful, defaulttext) {
++		var text = defaulttext || gettext('No network information');
++		var more = false;
++		if (unsuccessful) {
++		    text = gettext('Guest Agent not running');
++		} else if (ipview.agent && ipview.running) {
++		    if (Ext.isArray(ipview.nics) && ipview.nics.length) {
++			more = true;
++			var ips = ipview.getDefaultIps(ipview.nics);
++			if (ips.length !== 0) {
++			    text = ips.join('<br>');
++			}
++		    } else if (ipview.nics && ipview.nics.error) {
++			let msg = gettext('Cannot get info from Guest Agent<br>Error: {0}');
++			text = Ext.String.format(msg, Ext.htmlEncode(ipview.nics.error.desc));
++		    }
++		} else if (ipview.agent) {
++		    text = gettext('Guest Agent not running');
++		} else {
++		    text = gettext('No Guest Agent configured');
++		}
++
++		var ipBox = ipview.down('#ipBox');
++		ipBox.update(text);
++
++		var moreBtn = ipview.down('#moreBtn');
++		moreBtn.setVisible(more);
++	    },
++	    startIPStoreCallback: function(ipview, store) {
++		let agentRec = store.getById('agent');
++		let state = store.getById('status');
++
++		ipview.agent = agentRec && agentRec.data.value === 1;
++		ipview.running = state && state.data.value === 'running';
++
++		var caps = Ext.state.Manager.get('GuiCap');
++
++		if (!caps.vms['VM.Monitor']) {
++		    var errorText = gettext("Requires '{0}' Privileges");
++		    ipview.updateStatus(false, Ext.String.format(errorText, 'VM.Monitor'));
++		    return;
++		}
++
++		if (ipview.agent && ipview.running && ipview.ipStore.isStopped) {
++		    ipview.ipStore.startUpdate();
++		} else if (ipview.ipStore.isStopped) {
++		    ipview.updateStatus();
++		}
++	    },
++	},
++	{
++	    itemId: 'ctIPS',
++	    xtype: 'pveIPView',
++	    cbind: {
++		rstore: '{rstore}',
++		pveSelNode: '{pveSelNode}',
++		hidden: '{!isLxc}',
++		disabled: '{!isLxc}',
++	    },
++	    createUpdateStoreCallback: function(ipview, nodename, vmid) {
++		ipview.ipStore = Ext.create('Proxmox.data.UpdateStore', {
++		    interval: 10000,
++		    storeid: 'lxc-interfaces-' + vmid,
++		    method: 'GET',
++		    proxy: {
++			type: 'proxmox',
++			url: '/api2/json/nodes/' + nodename + '/lxc/' + vmid + '/interfaces',
++		    },
++		});
++		ipview.callParent();
++
++		ipview.mon(ipview.ipStore, 'load', function(_store, records, success) {
++		    if (records && records.length) {
++			ipview.nics = records.map(r => r.data);
++		    } else {
++			ipview.nics = undefined;
++		    }
++		    ipview.updateStatus(!success);
++		});
++	    },
++	    updateStatusCallback: function(ipview, _unsuccessful, defaulttext) {
++		var text = defaulttext || gettext('No network information');
++		var more = false;
++		if (Ext.isArray(ipview.nics) && ipview.nics.length) {
++		    more = true;
++		    var ips = ipview.getDefaultIps(ipview.nics);
++		    if (ips.length !== 0) {
++			text = ips.join('<br>');
++		    }
++		}
++		var ipBox = ipview.down('#ipBox');
++		ipBox.update(text);
++
++		var moreBtn = ipview.down('#moreBtn');
++		moreBtn.setVisible(more);
++	    },
++	    startIPStoreCallback: function(ipview, store) {
++		let state = store.getById('status');
++
++		ipview.running = state && state.data.value === 'running';
++
++		var caps = Ext.state.Manager.get('GuiCap');
++
++		if (!caps.vms['VM.Audit']) {
++		    var errorText = gettext("Requires '{0}' Privileges");
++		    ipview.updateStatus(false, Ext.String.format(errorText, 'VM.Audit'));
++		    return;
++		}
++
++		if (ipview.running && ipview.ipStore.isStopped) {
++		    ipview.ipStore.startUpdate();
++		} else if (ipview.ipStore.isStopped) {
++		    ipview.updateStatus();
++		}
++	    },
+ 	},
+     ],
+ 
+@@ -20166,7 +20378,7 @@
+ 	    let summarycolumns = sp.get('summarycolumns', 'auto');
+ 	    me.lookup('summarycolumns').setValue(summarycolumns);
+ 
+-	    me.lookup('guestNotesCollapse').setValue(sp.get('guest-notes-collapse', 'never'));
++	    me.lookup('guestNotesCollapse').setValue(sp.get('guest-notes-collapse', 'auto'));
+ 	    me.lookup('editNotesOnDoubleClick').setValue(sp.get('edit-notes-on-double-click', false));
+ 
+ 	    var settings = ['fontSize', 'fontFamily', 'letterSpacing', 'lineHeight'];
+@@ -20397,9 +20609,9 @@
+ 		stateId: 'guest-notes-collapse',
+ 		reference: 'guestNotesCollapse',
+ 		comboItems: [
++		    ['auto', 'auto (Collapse if empty)'],
+ 		    ['never', 'Show by default'],
+ 		    ['always', 'Collapse by default'],
+-		    ['auto', 'auto (Collapse if empty)'],
+ 		],
+ 	    },
+ 	    {
+@@ -36480,25 +36692,66 @@
+ 
+ 	Proxmox.Utils.setErrorMask(me, true);
+ 
++	let nodename = me.pveSelNode.data.node;
++	let vmid = me.pveSelNode.data.vmid;
++
+ 	Proxmox.Utils.API2Request({
+-	    url: me.url,
++	    url: `/nodes/${nodename}/lxc/${vmid}/interfaces`,
++		method: 'GET',
+ 	    failure: function(response, opts) {
+ 		Proxmox.Utils.setErrorMask(me, gettext('Error') + ': ' + response.htmlStatus);
+ 	    },
+-	    success: function(response, opts) {
+-		Proxmox.Utils.setErrorMask(me, false);
+-		let result = Ext.decode(response.responseText);
+-		me.dataCache = result.data || {};
+-		let records = [];
+-		for (const [key, value] of Object.entries(me.dataCache)) {
+-		    if (key.match(/^net\d+/)) {
+-			let net = PVE.Parser.parseLxcNetwork(value);
+-			net.id = key;
+-			records.push(net);
+-		    }
+-		}
+-		me.store.loadData(records);
+-		me.down('button[name=addButton]').setDisabled(records.length >= 32);
++	    success: function(ifResponse, ifOpts) {
++		Proxmox.Utils.API2Request({
++		    url: me.url,
++		    failure: function(response, opts) {
++			Proxmox.Utils.setErrorMask(me, gettext('Error') + ': ' + response.htmlStatus);
++		    },
++		    success: function(confResponse, confOpts) {
++			Proxmox.Utils.setErrorMask(me, false);
++
++			let interfaces = [];
++			for (const [, iface] of Object.entries(ifResponse?.result?.data || {})) {
++			    interfaces[iface['hardware-address']] = iface;
++			}
++
++			me.dataCache = confResponse.result.data || {};
++			let records = [];
++			for (const [key, value] of Object.entries(me.dataCache)) {
++			    if (key.match(/^net\d+/)) {
++				let config = PVE.Parser.parseLxcNetwork(value);
++				let net = structuredClone(config);
++				net.id = key;
++
++				let iface = interfaces[config.hwaddr.toLowerCase()];
++				if (iface) {
++				    net.name = iface.name;
++				    net.ip = [];
++				    for (const i of iface['ip-addresses']) {
++					let ip_with_prefix = `${i['ip-address']}/${i.prefix}`;
++					if (i['ip-address-type'] === "inet") {
++					    if (config.ip === ip_with_prefix) {
++						net.ip.push(`${ip_with_prefix} (static)`);
++					    } else {
++						net.ip.push(`${ip_with_prefix} (dhcp)`);
++					    }
++					} else if (i['ip-address-type'] === "inet6") {
++					    if (config.ip6 === ip_with_prefix) {
++						net.ip.push(`${ip_with_prefix} (static)`);
++					    } else {
++						net.ip.push(`${ip_with_prefix} (dhcp)`);
++					    }
++					}
++				    }
++				}
++				records.push(net);
++			    }
++			}
++
++			me.store.loadData(records);
++			me.down('button[name=addButton]').setDisabled(records.length >= 32);
++		    },
++		});
+ 	    },
+ 	});
+     },
+@@ -36628,7 +36881,7 @@
+ 		},
+ 		{
+ 		    header: gettext('VLAN Tag'),
+-		    width: 80,
++		    width: 70,
+ 		    dataIndex: 'tag',
+ 		},
+ 		{
+@@ -36638,16 +36891,10 @@
+ 		},
+ 		{
+ 		    header: gettext('IP address'),
+-		    width: 150,
++		    width: 200,
+ 		    dataIndex: 'ip',
+-		    renderer: function(value, metaData, rec) {
+-			if (rec.data.ip && rec.data.ip6) {
+-			    return rec.data.ip + "<br>" + rec.data.ip6;
+-			} else if (rec.data.ip6) {
+-			    return rec.data.ip6;
+-			} else {
+-			    return rec.data.ip;
+-			}
++		    renderer: function(_value, _metaData, rec) {
++			    return rec.data.ip.join("<br>");
+ 		    },
+ 		},
+ 		{
+@@ -46190,7 +46437,7 @@
+ Ext.define('PVE.window.IPInfo', {
+     extend: 'Ext.window.Window',
+     width: 600,
+-    title: gettext('Guest Agent Network Information'),
++    title: gettext('Network Information'),
+     height: 300,
+     layout: {
+ 	type: 'fit',
+@@ -46240,9 +46487,9 @@
+     ],
+ });
+ 
+-Ext.define('PVE.qemu.AgentIPView', {
++Ext.define('PVE.IPView', {
+     extend: 'Ext.container.Container',
+-    xtype: 'pveAgentIPView',
++    xtype: 'pveIPView',
+ 
+     layout: {
+ 	type: 'hbox',
+@@ -46250,6 +46497,9 @@
+     },
+ 
+     nics: [],
++    startIPStoreCallback: undefined,
++    updateStatusCallback: undefined,
++    createUpdateStoreCallback: undefined,
+ 
+     items: [
+ 	{
+@@ -46279,7 +46529,7 @@
+ 		    hidden: true,
+ 		    ui: 'default-toolbar',
+ 		    handler: function(btn) {
+-			let view = this.up('pveAgentIPView');
++				let view = this.up('pveIPView');
+ 
+ 			var win = Ext.create('PVE.window.IPInfo');
+ 			win.down('grid').getStore().setData(view.nics);
+@@ -46314,54 +46564,12 @@
+ 
+     startIPStore: function(store, records, success) {
+ 	var me = this;
+-	let agentRec = store.getById('agent');
+-	let state = store.getById('status');
+-
+-	me.agent = agentRec && agentRec.data.value === 1;
+-	me.running = state && state.data.value === 'running';
+-
+-	var caps = Ext.state.Manager.get('GuiCap');
+-
+-	if (!caps.vms['VM.Monitor']) {
+-	    var errorText = gettext("Requires '{0}' Privileges");
+-	    me.updateStatus(false, Ext.String.format(errorText, 'VM.Monitor'));
+-	    return;
+-	}
+-
+-	if (me.agent && me.running && me.ipStore.isStopped) {
+-	    me.ipStore.startUpdate();
+-	} else if (me.ipStore.isStopped) {
+-	    me.updateStatus();
+-	}
++	me.startIPStoreCallback(me, store);
+     },
+ 
+     updateStatus: function(unsuccessful, defaulttext) {
+ 	var me = this;
+-	var text = defaulttext || gettext('No network information');
+-	var more = false;
+-	if (unsuccessful) {
+-	    text = gettext('Guest Agent not running');
+-	} else if (me.agent && me.running) {
+-	    if (Ext.isArray(me.nics) && me.nics.length) {
+-		more = true;
+-		var ips = me.getDefaultIps(me.nics);
+-		if (ips.length !== 0) {
+-		    text = ips.join('<br>');
+-		}
+-	    } else if (me.nics && me.nics.error) {
+-		text = Ext.String.format(text, me.nics.error.desc);
+-	    }
+-	} else if (me.agent) {
+-	    text = gettext('Guest Agent not running');
+-	} else {
+-	    text = gettext('No Guest Agent configured');
+-	}
+-
+-	var ipBox = me.down('#ipBox');
+-	ipBox.update(text);
+-
+-	var moreBtn = me.down('#moreBtn');
+-	moreBtn.setVisible(more);
++	me.updateStatusCallback(me, unsuccessful, defaulttext);
+     },
+ 
+     initComponent: function() {
+@@ -46378,26 +46586,7 @@
+ 	var nodename = me.pveSelNode.data.node;
+ 	var vmid = me.pveSelNode.data.vmid;
+ 
+-	me.ipStore = Ext.create('Proxmox.data.UpdateStore', {
+-	    interval: 10000,
+-	    storeid: 'pve-qemu-agent-' + vmid,
+-	    method: 'POST',
+-	    proxy: {
+-		type: 'proxmox',
+-		url: '/api2/json/nodes/' + nodename + '/qemu/' + vmid + '/agent/network-get-interfaces',
+-	    },
+-	});
+-
+-	me.callParent();
+-
+-	me.mon(me.ipStore, 'load', function(store, records, success) {
+-	    if (records && records.length) {
+-		me.nics = records[0].data.result;
+-	    } else {
+-		me.nics = undefined;
+-	    }
+-	    me.updateStatus(!success);
+-	});
++	me.createUpdateStoreCallback(me, nodename, vmid);
+ 
+ 	me.on('destroy', me.ipStore.stopUpdate, me.ipStore);
+ 

@@ -1,0 +1,25 @@
+--- /usr/share/perl5/PVE/LXC.pm.bak
++++ /usr/share/perl5/PVE/LXC.pm
+@@ -1103,10 +1103,22 @@
+     my $res;
+     for my $interface ($config->@*) {
+ 	my $obj = { name => $interface->{ifname} };
++	my $list = [];
+ 	for my $ip ($interface->{addr_info}->@*) {
+ 	    $obj->{$ip->{family}} = $ip->{local} . "/" . $ip->{prefixlen};
++
++	    push(
++		@$list, {
++		    'ip-address-type' => $ip->{family},
++		    'ip-address'      => $ip->{local},
++		    'prefix'          => $ip->{prefixlen}
++		}
++	    );
+ 	}
++	$obj->{'ip-addresses'} = $list;
++	$obj->{'hardware-address'} = $interface->{address};
+ 	$obj->{hwaddr} = $interface->{address};
++
+ 	push @$res, $obj
+     }
+ 

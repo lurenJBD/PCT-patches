@@ -1,0 +1,48 @@
+--- /usr/share/perl5/PVE/LXC/Setup.pm.bak
++++ /usr/share/perl5/PVE/LXC/Setup.pm
+@@ -20,6 +20,7 @@
+ use PVE::LXC::Setup::NixOS;
+ use PVE::LXC::Setup::OpenEuler;
+ use PVE::LXC::Setup::Unmanaged;
++use PVE::LXC::Setup::Oci;
+ 
+ my $plugins = {
+     alpine    => 'PVE::LXC::Setup::Alpine',
+@@ -34,6 +35,7 @@
+     ubuntu    => 'PVE::LXC::Setup::Ubuntu',
+     nixos     => 'PVE::LXC::Setup::NixOS',
+     unmanaged => 'PVE::LXC::Setup::Unmanaged',
++    oci       => 'PVE::LXC::Setup::Oci',
+ };
+ 
+ # a map to allow supporting related distro flavours
+@@ -65,7 +67,9 @@
+ 	}
+     }
+ 
+-    if (-f "$rootdir/etc/debian_version") {
++    if (-d "$rootdir/apex") {
++	return "oci";
++    } elsif (-f "$rootdir/etc/debian_version") {  
+ 	return "debian";
+     } elsif (-f "$rootdir/etc/devuan_version") {
+ 	return "devuan";
+@@ -348,7 +352,9 @@
+     my ($self) = @_;
+ 
+     my $data = $self->protected_call(sub {
+-	if (-f '/etc/os-release') {
++	if (-f '/oci-config') {
++	    return "ID=oci";
++	} elsif (-f '/etc/os-release') {
+ 	    return PVE::Tools::file_get_contents('/etc/os-release');
+ 	} elsif (-f '/usr/lib/os-release') {
+ 	    return PVE::Tools::file_get_contents('/usr/lib/os-release');
+@@ -359,7 +365,6 @@
+     return &$parse_os_release($data);
+ }
+ 
+-# Checks whether /sbin/init is a symlink, and if it is, resolves it to the actual binary
+ sub get_ct_init_path {
+     my ($self) = @_;
+ 
