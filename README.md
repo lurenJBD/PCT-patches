@@ -7,7 +7,7 @@ Patch scripts to improve PCT/PVE 8:
 
 ---
 
-[Chinese Documentation](README-CN.md) | English Documentation
+[中文](README-CN.md) | English
 
 ## 0. Warning Information
 
