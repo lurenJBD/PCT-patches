@@ -137,11 +137,11 @@ For more `lxc.init.cmd` parameters, see [redroid-doc](https://github.com/remote-
 
 ##### `Mount Entry` feature for OCI containers (OCI only)
 
-![Image](https://github.com/user-attachments/assets/660b1df1-4ad6-49bc-8982-617b115af164)
+![Image](./Image/OCI-MountEntry.jpg)
 
 ##### Apparmor profile, `lxc.init.cmd` and `lxc.mount.auto` for OCI containers (the latter two for OCI only)
 
-![Image](https://github.com/user-attachments/assets/0b0dfee6-564a-4363-ad3b-a68e1b5ceaf4)
+![Image](./Image/OCI-ApparmorProfile-lxc.jpg)
 
 ---
 
@@ -167,11 +167,17 @@ bash Patch-for-PCT-WebUI-Display-IPinfo-beta.sh -e -R
 #### 3.2 Screenshots
 
 ##### PCT main page showing IP info
-![Image](https://github.com/user-attachments/assets/6fee1c85-578f-48bd-b44b-e8c01c2f9c17)
+
+![Image](./Image/PCT-IPInformationShown.jpg)
 
 ##### Detailed IP info
-![Image](https://github.com/user-attachments/assets/60037ce5-ca58-4a9e-88eb-91f022560a70)
 
-## Special Thanks
+![Image](./Image/PCT-IPInformationDetails.jpg)
 
-Special thanks to [NEANC](https://github.com/NEANC) for ReadMe improvements!
+---
+
+# Contributors
+
+Thanks to the following developers for their contributions to this project:
+
+[![Contributors](https://contrib.rocks/image?repo=lurenJBD/PCT-patches&max=1000)](https://github.com/lurenJBD/PCT-patches/graphs/contributors)

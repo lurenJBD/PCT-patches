@@ -72,11 +72,10 @@ bash Patch-for-PCT-to-support-oci.sh -c -R
 ---
 
 > [!CAUTION]
->
 > 1. 创建 Redroid LXC 容器后，容器选项中 **OS 类型** 非 `OCi`，或无 `lxc.init.cmd` 和 `Ixc.mount.auto` 参数  
 >    请先刷新 PVE WebUI，确认是否有变化，如果依然无变化，请尝试重启 PVE ，如重启后问题依然没得到解决  
 >    请撤销脚本修改后重启 PVE，重新运行脚本后再次重启 PVE 后，再尝试新建 Redroid LXC 容器  
-> 2. 若无法确认是否成功，可[查看部署成功截图](#为-oci-类型容器添加的-apparmor-profile-lxcinitcmd-和-ixcmountauto-参数后两者仅限-oci-容器使用)来确定
+> 2. 若无法确认是否成功，可[查看部署成功截图](#为-oci-类型容器添加的-apparmor-profile-lxcinitcmd-和-ixcmountauto-参数后两者仅限-oci-容器使用)来辅助确认
 
 ## 2. 创建 Redroid LXC 容器
 
@@ -177,7 +176,7 @@ bash Patch-for-PCT-WebUI-Display-IPinfo-beta.sh -R
 
 ---
 
-## 鸣谢
+# 鸣谢
 
 感谢以下开发者对本项目作出的贡献:
 
