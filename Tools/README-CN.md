@@ -1,5 +1,6 @@
 # Docker转PCT模板 工具使用说明
-[中文文档](https://github.com/lurenJBD/PCT-pacthes/blob/main/Tools/README-CN.md) | [English](https://github.com/lurenJBD/PCT-pacthes/blob/main/Tools/README.md)
+
+中文 | [English](README.md)
 
 ## 简介
 

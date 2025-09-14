@@ -1,5 +1,6 @@
 # Docker to PCT Template Conversion Tool
-[中文文档](https://github.com/lurenJBD/PCT-pacthes/blob/main/Tools/README-CN.md) | [English](https://github.com/lurenJBD/PCT-pacthes/blob/main/Tools/README.md)
+
+[中文](README-CN.md) | English
 
 ## Introduction
 
