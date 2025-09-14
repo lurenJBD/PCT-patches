@@ -1,5 +1,6 @@
 # Docker转PCT模板 工具使用说明
-[中文文档](https://github.com/lurenJBD/PCT-pacthes/blob/main/Tools/README-CN.md) | [English](https://github.com/lurenJBD/PCT-pacthes/blob/main/Tools/README.md)
+
+中文 | [English](README.md)
 
 ## 简介
 
@@ -24,7 +25,7 @@
 ## 安装
 
 ```bash
-wget -q https://github.com/lurenJBD/PCT-pacthes/raw/refs/heads/main/Tools/Docker-To-PCT-CN-Beta.sh
+wget -q https://raw.githubusercontent.com/lurenJBD/PCT-patches/refs/heads/pve-8/Tools/Docker-To-PCT-CN-Beta.sh
 chmod +x Docker-To-PCT-CN-Beta.sh
 ```
 
