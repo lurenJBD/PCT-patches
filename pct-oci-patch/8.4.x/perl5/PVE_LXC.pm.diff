@@ -2,22 +2,22 @@
 +++ /usr/share/perl5/PVE/LXC.pm
 @@ -586,6 +586,7 @@
      if ($features->{fuse}) {
- 	# For the informational warning:
- 	push @profile_uses, 'features:fuse';
-+	$raw .= "lxc.apparmor.raw = mount fstype=fuse,\n";
+         # For the informational warning:
+         push @profile_uses, 'features:fuse';
++        $raw .= "lxc.apparmor.raw = mount fstype=fuse,\n";
      }
  
      # There's lxc.apparmor.allow_nesting now, which will add the necessary
 @@ -614,6 +615,14 @@
- 	}
+         }
      }
  
-+	# Check for user-defined apparmor setting
++        # Check for user-defined apparmor setting
 +    if ($conf->{apparmor}) {
-+	push @profile_uses, 'apparmor:'.$conf->{apparmor};
-+	if ($conf->{apparmor} eq "unconfined") {
-+	    $raw = "lxc.apparmor.profile = unconfined\n";
-+	}
++        push @profile_uses, 'apparmor:'.$conf->{apparmor};
++        if ($conf->{apparmor} eq "unconfined") {
++            $raw = "lxc.apparmor.profile = unconfined\n";
++        }
 +    }
 +
      # More to come?
@@ -27,39 +27,39 @@
      $raw .= make_seccomp_config($conf, $vmid, $dir, $unprivileged, $features);
      $raw .= make_apparmor_config($conf, $unprivileged, $features);
      if ($features->{fuse}) {
--	$raw .= "lxc.apparmor.raw = mount fstype=fuse,\n";
- 	$raw .= "lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file 0 0\n";
+-        $raw .= "lxc.apparmor.raw = mount fstype=fuse,\n";
+         $raw .= "lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file 0 0\n";
      }
 +    if ($features->{autodev}) {
-+	$raw .= "lxc.autodev = 1\n";
-+	$raw .= "lxc.autodev.tmpfs.size = 25000000\n" if ($ostype eq "oci");
++        $raw .= "lxc.autodev = 1\n";
++        $raw .= "lxc.autodev.tmpfs.size = 25000000\n" if ($ostype eq "oci");
 +    }
  
 -    if ($unprivileged && !$features->{force_rw_sys}) {
 +    if ($conf->{automount}) {
-+	    if (PVE::LXC::Config->has_lxc_entry($conf, 'lxc.mount.auto')) {
-+		warn "explicitly configured lxc.mount.auto overrides the automount setting\n";
-+	    } else {
-+		my $automount = PVE::LXC::Config->parse_automount($conf->{automount});
-+		$raw .= "lxc.mount.auto = $automount\n";
-+	    }
++            if (PVE::LXC::Config->has_lxc_entry($conf, 'lxc.mount.auto')) {
++                warn "explicitly configured lxc.mount.auto overrides the automount setting\n";
++            } else {
++                my $automount = PVE::LXC::Config->parse_automount($conf->{automount});
++                $raw .= "lxc.mount.auto = $automount\n";
++            }
 +    } elsif ($unprivileged && !$features->{force_rw_sys}) {
- 	# unpriv. CT default to sys:rw, but that doesn't always plays well with
- 	# systemd, e.g., systemd-networkd https://systemd.io/CONTAINER_INTERFACE/
- 	$raw .= "lxc.mount.auto = sys:mixed\n";
+         # unpriv. CT default to sys:rw, but that doesn't always plays well with
+         # systemd, e.g., systemd-networkd https://systemd.io/CONTAINER_INTERFACE/
+         $raw .= "lxc.mount.auto = sys:mixed\n";
 @@ -709,6 +728,17 @@
- 	$raw .= "lxc.cgroup2.devices.deny = $device_type_char $major:$minor w\n" if $device->{'deny-write'};
+         $raw .= "lxc.cgroup2.devices.deny = $device_type_char $major:$minor w\n" if $device->{'deny-write'};
      });
  
 +    PVE::LXC::Config->foreach_mount_entry($conf, sub {
-+	my ($key, $entry) = @_;
-+	my $create = $entry->{create};
-+	my $path1  = $entry->{path1};
-+	my $path2  = $entry->{path2};
++        my ($key, $entry) = @_;
++        my $create = $entry->{create};
++        my $path1  = $entry->{path1};
++        my $path2  = $entry->{path2};
 +
-+	$path2 =~ s|^/||  if $path2 =~ m|^/dev/|;
++        $path2 =~ s|^/||  if $path2 =~ m|^/dev/|;
 +
-+	$raw .= "lxc.mount.entry = $path1 $path2 none bind,optional,create=$create\n";
++        $raw .= "lxc.mount.entry = $path1 $path2 none bind,optional,create=$create\n";
 +    });
 +
      # WARNING: DO NOT REMOVE this without making sure that loop device nodes
@@ -70,22 +70,22 @@
      $raw .= "lxc.uts.name = $utsname\n";
  
 +    if ($conf->{initcmd}) {
-+	    if (PVE::LXC::Config->has_lxc_entry($conf, 'lxc.init.cmd')) {
-+		warn "explicitly configured lxc.init.cmd overrides the initcmd setting\n";
-+	    } else {
-+		$raw .= "lxc.init.cmd = $conf->{initcmd}\n";
-+	    }
++            if (PVE::LXC::Config->has_lxc_entry($conf, 'lxc.init.cmd')) {
++                warn "explicitly configured lxc.init.cmd overrides the initcmd setting\n";
++            } else {
++                $raw .= "lxc.init.cmd = $conf->{initcmd}\n";
++            }
 +    }
 +
      if ($cgv1->{memory}) {
- 	my $memory = $conf->{memory} || 512;
- 	my $swap = $conf->{swap} // 0;
+         my $memory = $conf->{memory} || 512;
+         my $swap = $conf->{swap} // 0;
 @@ -1459,6 +1497,8 @@
- 	    check_bridge_access($rpcenv, $authuser, $newconf->{$opt}) if $newconf->{$opt};
- 	} elsif ($opt =~ m/^dev\d+$/) {
- 	    raise_perm_exc("configuring device passthrough is only allowed for root\@pam");
-+	} elsif ($opt =~ m/^entry\d+$/) {
-+	    raise_perm_exc("configuring entry mount is only allowed for root\@pam");
- 	} elsif ($opt eq 'nameserver' || $opt eq 'searchdomain' || $opt eq 'hostname') {
- 	    $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
- 	} elsif ($opt eq 'features') {
+             check_bridge_access($rpcenv, $authuser, $newconf->{$opt}) if $newconf->{$opt};
+         } elsif ($opt =~ m/^dev\d+$/) {
+             raise_perm_exc("configuring device passthrough is only allowed for root\@pam");
++        } elsif ($opt =~ m/^entry\d+$/) {
++            raise_perm_exc("configuring entry mount is only allowed for root\@pam");
+         } elsif ($opt eq 'nameserver' || $opt eq 'searchdomain' || $opt eq 'hostname') {
+             $rpcenv->check_vm_perm($authuser, $vmid, $pool, ['VM.Config.Network']);
+         } elsif ($opt eq 'features') {
