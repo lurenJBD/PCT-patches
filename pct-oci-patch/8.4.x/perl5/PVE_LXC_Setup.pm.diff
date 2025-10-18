@@ -17,27 +17,27 @@
  
  # a map to allow supporting related distro flavours
 @@ -65,7 +67,9 @@
- 	}
+         }
      }
  
 -    if (-f "$rootdir/etc/debian_version") {
 +    if (-d "$rootdir/apex") {
-+	return "oci";
++        return "oci";
 +    } elsif (-f "$rootdir/etc/debian_version") {  
- 	return "debian";
+         return "debian";
      } elsif (-f "$rootdir/etc/devuan_version") {
- 	return "devuan";
+         return "devuan";
 @@ -348,7 +352,9 @@
      my ($self) = @_;
  
      my $data = $self->protected_call(sub {
--	if (-f '/etc/os-release') {
-+	if (-f '/oci-config') {
-+	    return "ID=oci";
-+	} elsif (-f '/etc/os-release') {
- 	    return PVE::Tools::file_get_contents('/etc/os-release');
- 	} elsif (-f '/usr/lib/os-release') {
- 	    return PVE::Tools::file_get_contents('/usr/lib/os-release');
+-        if (-f '/etc/os-release') {
++        if (-f '/oci-config') {
++            return "ID=oci";
++        } elsif (-f '/etc/os-release') {
+             return PVE::Tools::file_get_contents('/etc/os-release');
+         } elsif (-f '/usr/lib/os-release') {
+             return PVE::Tools::file_get_contents('/usr/lib/os-release');
 @@ -359,7 +365,6 @@
      return &$parse_os_release($data);
  }
